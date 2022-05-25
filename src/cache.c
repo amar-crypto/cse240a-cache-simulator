@@ -69,7 +69,6 @@ block** D_cache;
 block** L2_cache;
 
 uint8_t dcache_or_icache;
-uint8_t l1_eviction;
 uint32_t icache_per_access_time;
 uint32_t dcache_per_access_time;
 
@@ -77,7 +76,6 @@ uint32_t dcache_per_access_time;
 
 uint32_t find_index(uint32_t addr, uint32_t Sets);
 uint32_t find_tag(uint32_t addr, uint32_t Sets);
-uint32_t l2cache_fill(uint32_t addr);
 
 //
 //TODO: Add your Cache data structures here
@@ -108,7 +106,6 @@ init_cache()
   //
   icache_per_access_time = 0;
   dcache_per_access_time = 0;
-  l1_eviction = 0;
 
   int i = 0;
   int j = 0;
@@ -189,9 +186,6 @@ icache_access(uint32_t addr)
   
   uint32_t counter;
   uint32_t update_lru_bound;
-  uint32_t addr_to_write_L2;
-  uint32_t index_to_evict;
-  uint32_t tag_to_evict;
 
   
   int i;
@@ -212,7 +206,7 @@ icache_access(uint32_t addr)
   if (match == 0) {
      icacheMisses++;
      icachePenalties = icachePenalties + l2cacheHitTime;
-     icache_per_access_time = l2cacheHitTime;
+     icache_per_access_time = icacheHitTime + l2cacheHitTime;
 
   for (i = 0; i < icacheAssoc; i++) {
   if (I_cache[index][i].valid == 0 && find_entry == 0){
@@ -232,13 +226,6 @@ icache_access(uint32_t addr)
        find_lru = 1;
        counter = i;
        update_lru_bound = I_cache[index][i].lru;
-
-       if (inclusive == 0) {
-           l1_eviction = 1;
-           index_to_evict = index << (int) log2(blocksize);
-           tag_to_evict = I_cache[index][counter].tag;
-           addr_to_write_L2 = index_to_evict | tag_to_evict;
-       }
     }
   }
    I_cache[index][counter].valid = 1;
@@ -261,12 +248,7 @@ dcache_or_icache = 0;
 l2cache_access(addr);
 }
 
-if (l1_eviction == 1) {
-   l1_eviction = 0;
-   l2cache_fill(addr_to_write_L2);
-}
-
-  return icache_per_access_time;
+return icache_per_access_time;
 
 }
 
@@ -287,9 +269,7 @@ dcache_access(uint32_t addr)
   
   uint32_t counter;
   uint32_t update_lru_bound;
-  uint32_t addr_to_write_L2;
-  uint32_t index_to_evict;
-  uint32_t tag_to_evict;
+  
 
   
   int i;
@@ -311,7 +291,7 @@ dcache_access(uint32_t addr)
   if (match == 0) {
      dcacheMisses++;
      dcachePenalties = dcachePenalties + l2cacheHitTime;
-     dcache_per_access_time = l2cacheHitTime;
+     dcache_per_access_time = l2cacheHitTime + dcacheHitTime;
 
 
   for (i = 0; i < dcacheAssoc; i++) {
@@ -332,13 +312,6 @@ dcache_access(uint32_t addr)
        find_lru = 1;
        counter = i;
        update_lru_bound = D_cache[index][i].lru;
-
-       if (inclusive == 0) {
-           l1_eviction = 1;
-           index_to_evict = index << (int) log2(blocksize);
-           tag_to_evict = I_cache[index][counter].tag;
-           addr_to_write_L2 = index_to_evict | tag_to_evict;
-       }
     }
   }
    D_cache[index][counter].valid = 1;
@@ -361,11 +334,7 @@ dcache_or_icache = 1;
 l2cache_access(addr);
 }
 
-if (l1_eviction == 1) {
-   l1_eviction = 0;
-   l2cache_fill(addr_to_write_L2);
-}
-  return dcache_per_access_time;
+return dcache_per_access_time;
 }
 
 // Perform a memory access to the l2cache for the address 'addr'
@@ -414,7 +383,7 @@ l2cache_access(uint32_t addr)
       dcachePenalties = dcachePenalties + memspeed;
       dcache_per_access_time = dcache_per_access_time + memspeed;
      }
-  if (inclusive == 1) {
+
   for (i = 0; i < l2cacheAssoc; i++) {
   if (L2_cache[index][i].valid == 0 && find_entry == 0){
      find_entry = 1;
@@ -440,10 +409,9 @@ l2cache_access(uint32_t addr)
 
   }
  }
-}
+
 
 //LRU update
-if (match || inclusive) {
 for (i = 0; i < l2cacheAssoc; i++) {
 if (L2_cache[index][i].lru > update_lru_bound) {
   L2_cache[index][i].lru--;
@@ -451,88 +419,8 @@ if (L2_cache[index][i].lru > update_lru_bound) {
 }
 
 L2_cache[index][counter].lru = l2cacheAssoc - 1;
-  }
+
 
   return memspeed;
 
-}
-
-uint32_t
-l2cache_fill(uint32_t addr) {
-
-//l2cacheRefs++;
-
-  uint32_t index = find_index(addr, l2cacheSets);
-  uint32_t tag = find_tag(addr, l2cacheSets);
-  
-  uint32_t counter;
-  uint32_t update_lru_bound;
-  
-  int i;
-  int match = 0;
-  int find_entry = 0;
-  int find_lru = 0;
-  
-  
-  //for (i = 0; i < l2cacheAssoc; i++) {
-  //if (L2_cache[index][i].tag == tag && L2_cache[index][i].valid == 1 && match == 0) {     
-    //match = 1;
-    //counter = i;
-    //update_lru_bound = L2_cache[index][i].lru;
-   //}
-  //}
-
-  //if (match == 0) {
-     //l2cacheMisses++;
-    // l2cachePenalties = l2cachePenalties + memspeed;
-
-     //if(dcache_or_icache == 0) {
-     // icachePenalties = icachePenalties + memspeed;
-     // icache_per_access_time = icache_per_access_time + memspeed;
-    // }
-
-     //else {
-     // dcachePenalties = dcachePenalties + memspeed;
-     // dcache_per_access_time = dcache_per_access_time + memspeed;
-     //}
-  //if (inclusive == 1) {
-  for (i = 0; i < l2cacheAssoc; i++) {
-  if (L2_cache[index][i].valid == 0 && find_entry == 0){
-     find_entry = 1;
-     counter = i;
-     update_lru_bound = L2_cache[index][i].lru;
-  }
-}
-  if (find_entry == 1) {
-   L2_cache[index][counter].valid = 1;
-   L2_cache[index][counter].tag = tag;
-  }
-
-  else {
-    for (i = 0; i < l2cacheAssoc; i++) {
-    if (L2_cache[index][i].lru == 0 && find_lru == 0) {
-       find_lru = 1;
-       counter = i;
-       update_lru_bound = L2_cache[index][i].lru;
-    }
-  }
-   L2_cache[index][counter].valid = 1;
-   L2_cache[index][counter].tag = tag;
-
-  }
- //}
-//}
-
-//LRU update
-//if (match || inclusive) {
-for (i = 0; i < l2cacheAssoc; i++) {
-if (L2_cache[index][i].lru > update_lru_bound) {
-  L2_cache[index][i].lru--;
- }
-}
-
-L2_cache[index][counter].lru = l2cacheAssoc - 1;
-  //}
-
-  return memspeed;
 }
