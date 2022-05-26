@@ -179,11 +179,7 @@ icache_access(uint32_t addr)
   //
   //TODO: Implement I$
   //
-  icacheRefs++;
 
-  uint32_t index = find_index(addr, icacheSets);
-  uint32_t tag = find_tag(addr, icacheSets);
-  
   uint32_t counter;
   uint32_t update_lru_bound;
 
@@ -192,6 +188,16 @@ icache_access(uint32_t addr)
   int match = 0;
   int find_entry = 0;
   int find_lru = 0;
+
+  icache_per_access_time = 0;
+
+
+
+  if (icacheSets != 0) {
+  icacheRefs++;
+
+  uint32_t index = find_index(addr, icacheSets);
+  uint32_t tag = find_tag(addr, icacheSets);
   
   
   for (i = 0; i < icacheAssoc; i++) {
@@ -243,6 +249,9 @@ if (I_cache[index][i].lru > update_lru_bound) {
 
 I_cache[index][counter].lru = icacheAssoc - 1;
 
+  
+}
+
 if (match == 0) {
 dcache_or_icache = 0;
 l2cache_access(addr);
@@ -262,11 +271,6 @@ dcache_access(uint32_t addr)
   //TODO: Implement D$
   //
 
-  dcacheRefs++;
-
-  uint32_t index = find_index(addr, dcacheSets);
-  uint32_t tag = find_tag(addr, dcacheSets);
-  
   uint32_t counter;
   uint32_t update_lru_bound;
   
@@ -276,6 +280,16 @@ dcache_access(uint32_t addr)
   int match = 0;
   int find_entry = 0;
   int find_lru = 0;
+  
+  dcache_per_access_time = 0;
+  
+ if (dcacheSets != 0) {
+  dcacheRefs++;
+
+  uint32_t index = find_index(addr, dcacheSets);
+  uint32_t tag = find_tag(addr, dcacheSets);
+  
+  
   
   
   for (i = 0; i < dcacheAssoc; i++) {
@@ -329,6 +343,8 @@ if (D_cache[index][i].lru > update_lru_bound) {
 
 D_cache[index][counter].lru = dcacheAssoc - 1;
 
+ }
+
 if (match == 0) {
 dcache_or_icache = 1;
 l2cache_access(addr);
@@ -347,12 +363,6 @@ l2cache_access(uint32_t addr)
   //TODO: Implement L2$
   //
 
-
-  l2cacheRefs++;
-
-  uint32_t index = find_index(addr, l2cacheSets);
-  uint32_t tag = find_tag(addr, l2cacheSets);
-  
   uint32_t counter;
   uint32_t update_lru_bound;
   
@@ -360,6 +370,20 @@ l2cache_access(uint32_t addr)
   int match = 0;
   int find_entry = 0;
   int find_lru = 0;
+  
+ if (l2cacheSets != 0) {
+    l2cacheRefs++;
+
+  uint32_t index = find_index(addr, l2cacheSets);
+  uint32_t tag = find_tag(addr, l2cacheSets);
+  
+  if (icacheSets == 0) {
+     icache_per_access_time = l2cacheHitTime;
+  }
+   
+  if (dcacheSets == 0) {
+     dcache_per_access_time = l2cacheHitTime;
+  }
   
   
   for (i = 0; i < l2cacheAssoc; i++) {
@@ -420,7 +444,7 @@ if (L2_cache[index][i].lru > update_lru_bound) {
 
 L2_cache[index][counter].lru = l2cacheAssoc - 1;
 
-
+ }
   return memspeed;
 
 }
